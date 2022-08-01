@@ -54,12 +54,13 @@ func NewApp(db *bbolt.DB, m *sync.Mutex, writes <-chan error) *app {
 					b := tx.Bucket(logsBucket)
 					c := b.Cursor()
 					startRead := *wsConn.Cursor - 20
-					endRead := startRead + 20
-					min := []byte(strconv.Itoa(startRead))
-					max := []byte(strconv.Itoa(endRead))
 					if startRead < 0 {
 						startRead = 0
 					}
+					endRead := startRead + 20
+					min := []byte(strconv.Itoa(startRead))
+					max := []byte(strconv.Itoa(endRead))
+
 					for k, v := c.Seek(min); k != nil && bytes.Compare(k, max) <= 0; k, v = c.Next() {
 						prefix := append(k, []byte(":")...)
 						wsConn.Conn.WriteMessage(websocket.TextMessage, append(prefix, v...))

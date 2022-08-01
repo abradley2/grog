@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+</head>
+
+<body>
+    <script src="ui.js"></script>
+    <div id="app"></div>
+    <script>
+        const app = window.Elm.Main.init({
+            node: document.getElementById('app'),
+            flags: {}
+        })
+
+        let _ws
+        let getOpenSocket
+
+            ; (function initSocket() {
+                const ws = new WebSocket('/ws')
+                socketOpened
+                getOpenSocket = new Promise(function (resolve) {
+                    socketOpened = resolve
+                })
+                ws.onopen = function () {
+                    socketOpened(ws)
+                }
+
+                ws.onmessage = function (e) {
+                    console.log(e)
+                    app.ports.onMessage.send(e.data)
+                }
+
+                ws.onerror = function (err) {
+                    console.error(err)
+                }
+
+                ws.onclose = function () {
+                    setTimeout(initSocket, 1000)
+                }
+            })()
+
+        app.ports.sendMessage.subscribe(function (msg) {
+            getOpenSocket().then(function (ws) {
+                ws.send(msg)
+            })
+        })
+
+    </script>
+</body>
+
+</html>
