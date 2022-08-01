@@ -47,6 +47,7 @@ func NewApp(db *bbolt.DB, m *sync.Mutex, writes <-chan error) *app {
 			err := <-writes
 			if err != nil {
 				fmt.Printf("Error in writes: %v\n", err)
+				continue
 			}
 			for _, wsConn := range wsConns {
 				db.View(func(tx *bbolt.Tx) error {
