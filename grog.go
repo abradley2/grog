@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"crypto"
+	_ "embed"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -20,6 +21,12 @@ import (
 
 	"go.etcd.io/bbolt"
 )
+
+//go:embed assets/ui.html
+var uiHTML []byte
+
+//go:embed assets/ui.js
+var uiJS []byte
 
 var cursor int
 var wd string
@@ -131,6 +138,18 @@ func NewApp(db *bbolt.DB, m *sync.Mutex, writes <-chan error) *app {
 			delete(wsConns, myID)
 			conn.Close()
 		}()
+	})
+
+	mux.HandleFunc("/ui.js", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		w.Header().Set("Content-Type", "application/javascript")
+		w.Write(uiJS)
+	})
+
+	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		w.Header().Add("Content-Type", "text/html")
+		w.Write(uiHTML)
 	})
 
 	return &app{
