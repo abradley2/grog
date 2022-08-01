@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"bytes"
+	"crypto"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -162,14 +163,7 @@ func main() {
 		return
 	}
 
-	pathArg := os.Getenv("DB_PATH")
-
-	if pathArg == "" {
-		fmt.Println("DB_PATH cannot be empty")
-		return
-	}
-
-	dbPath := path.Join(wd, pathArg)
+	dbPath := path.Join(wd, dbName())
 
 	// handle gracefull shutdown
 	sthaaaap := make(chan os.Signal, 1)
@@ -190,7 +184,7 @@ func main() {
 
 	defer os.Remove(dbPath)
 
-	db, err := bbolt.Open(pathArg, 0600, nil)
+	db, err := bbolt.Open(dbPath, 0600, nil)
 
 	if err != nil {
 		fmt.Printf("Error opening database: %v\n", err)
@@ -267,4 +261,11 @@ func runScanner(s *bufio.Scanner, db *bbolt.DB, c chan<- error, pipeOut io.Write
 		b.Put([]byte(strconv.Itoa(cursor)), input)
 		c <- tx.Commit()
 	}
+}
+
+func dbName() string {
+	h := crypto.MD5.New()
+	io.WriteString(h, wd)
+	io.WriteString(h, time.Now().String())
+	return fmt.Sprintf("tmp_grog_db_%x", h.Sum(nil))
 }

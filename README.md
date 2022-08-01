@@ -23,7 +23,7 @@ and serve a UI to browse through them
 # Usage
 
 ```
-start someprocess | DB_PATH=tmp_db  UI_PORT=9966 grog
+start someprocess | PORT=9966 grog
 ```
 
 The embedded database file will be created on process start and removed on process exit.
