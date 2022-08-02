@@ -21,8 +21,8 @@
         let getOpenSocket
 
             ; (function initSocket() {
-                const ws = new WebSocket('/ws')
-                socketOpened
+                const ws = new WebSocket(`ws://${window.location.host}/ws`)
+                let socketOpened
                 getOpenSocket = new Promise(function (resolve) {
                     socketOpened = resolve
                 })
@@ -45,7 +45,7 @@
             })()
 
         app.ports.sendMessage.subscribe(function (msg) {
-            getOpenSocket().then(function (ws) {
+            getOpenSocket.then(function (ws) {
                 ws.send(msg)
             })
         })

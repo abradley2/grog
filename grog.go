@@ -92,7 +92,8 @@ func NewApp(db *bbolt.DB, m *sync.Mutex, writes <-chan error) *app {
 
 		var myID int
 		var myCursor *int
-		*myCursor = cursor
+		c := cursor
+		myCursor = &c
 
 		m.Lock()
 		connID++
@@ -246,8 +247,8 @@ func main() {
 
 	stdin := bufio.NewScanner(os.Stdin)
 	stderr := bufio.NewScanner(os.Stderr)
-	go runScanner(stdin, db, errChan, os.Stdin)
-	go runScanner(stderr, db, errChan, os.Stderr)
+	go runScanner(stdin, db, errChan, os.Stdout)
+	go runScanner(stderr, db, errChan, os.Stdout)
 
 	for {
 		err = <-errChan
@@ -260,16 +261,14 @@ func main() {
 	fmt.Printf("Error in scanner: %v", err)
 }
 
-// TODO: this currently only works for ndjson, should just allow it to work with whatever probably
 func runScanner(s *bufio.Scanner, db *bbolt.DB, c chan<- error, pipeOut io.Writer) {
 	for s.Scan() {
-		// just check if this is valid json or a valid primitive
 		var js interface{}
 		var jsSlice []interface{}
 		input := s.Bytes()
 		pipeOut.Write(input)
-		if json.Unmarshal(input, &js) != nil && json.Unmarshal(input, &jsSlice) != nil {
-			continue
+		if json.Unmarshal(input, &js) == nil || json.Unmarshal(input, &jsSlice) == nil {
+			input = append([]byte("json:"), input...)
 		}
 		tx, err := db.Begin(true)
 		if err != nil {
