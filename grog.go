@@ -60,10 +60,10 @@ func (c *Connection) UpdateClient() error {
 	return c.db.View(func(tx *bbolt.Tx) error {
 		b := tx.Bucket(logsBucket)
 		curs := b.Cursor()
-		k, v := curs.Seek([]byte(strconv.Itoa(c.Cursor)))
+		k, v := curs.Seek([]byte(strconv.Itoa(c.Cursor - 10)))
 		var batchMsg []byte
 		nl := []byte("\n")
-		for i := 0; i < 11; i++ {
+		for i := 0; i < 20; i++ {
 			if k == nil {
 				break
 			}
