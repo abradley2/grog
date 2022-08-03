@@ -31,7 +31,6 @@
                 }
 
                 ws.onmessage = function (e) {
-                    console.log(e)
                     app.ports.onMessage.send(e.data)
                 }
 
