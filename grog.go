@@ -65,9 +65,8 @@ func (c *Connection) UpdateClient() error {
 			start = 1
 		}
 		k, v := curs.Seek(formatCursor(start))
-		var batchMsg []byte
-		nl := []byte("\n")
-		for i := 0; i < 20; i++ {
+		batchMsg := []string{}
+		for i := 0; i < 40; i++ {
 			if k == nil {
 				break
 			}
@@ -75,15 +74,16 @@ func (c *Connection) UpdateClient() error {
 			if err != nil {
 				return fmt.Errorf("Found invalid key when updating a client: %w", err)
 			}
-			msg := []byte(fmt.Sprintf("%d:%s", kval, v))
-			batchMsg = append(batchMsg, msg...)
+			msg := fmt.Sprintf("%d:%s", kval, v)
+			batchMsg = append(batchMsg, msg)
 
 			k, v = curs.Next()
-			if k != nil {
-				batchMsg = append(batchMsg, nl...)
-			}
 		}
-		return c.WriteTextMessage(batchMsg)
+		js, err := json.Marshal(batchMsg)
+		if err != nil {
+			return fmt.Errorf("Error marshaling batch message: %w", err)
+		}
+		return c.WriteTextMessage(js)
 	})
 }
 
@@ -174,13 +174,11 @@ func NewApp(db *bbolt.DB, m *sync.Mutex, writes <-chan error) *app {
 	})
 
 	mux.HandleFunc("/ui.js", func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
 		w.Header().Set("Content-Type", "application/javascript")
 		w.Write(uiJS)
 	})
 
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
 		w.Header().Add("Content-Type", "text/html")
 		w.Write(uiHTML)
 	})
