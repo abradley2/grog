@@ -27,12 +27,12 @@ var uiHTML []byte
 //go:embed assets/ui.js
 var uiJS []byte
 
-var cursor int
+var cursor int64
 var wd string
 
 type Connection struct {
 	m      *sync.Mutex
-	Cursor int
+	Cursor int64
 	Conn   *websocket.Conn
 	db     *bbolt.DB
 }
@@ -45,7 +45,7 @@ func (c *Connection) Listen() {
 				c.Conn.Close()
 				return
 			}
-			nextCursor, err := strconv.Atoi(string(msg))
+			nextCursor, err := strconv.ParseInt(string(msg), 10, 64)
 			if err != nil {
 				c.WriteTextMessage([]byte(fmt.Sprintf("error:converting message to int:%s", err)))
 				c.Conn.Close()
@@ -60,14 +60,22 @@ func (c *Connection) UpdateClient() error {
 	return c.db.View(func(tx *bbolt.Tx) error {
 		b := tx.Bucket(logsBucket)
 		curs := b.Cursor()
-		k, v := curs.Seek([]byte(strconv.Itoa(c.Cursor - 10)))
+		start := c.Cursor - 10
+		if start < 1 {
+			start = 1
+		}
+		k, v := curs.Seek(formatCursor(start))
 		var batchMsg []byte
 		nl := []byte("\n")
 		for i := 0; i < 20; i++ {
 			if k == nil {
 				break
 			}
-			msg := []byte(fmt.Sprintf("%s:%s", k, v))
+			kval, err := strconv.ParseInt(string(k), 10, 64)
+			if err != nil {
+				return fmt.Errorf("Found invalid key when updating a client: %w", err)
+			}
+			msg := []byte(fmt.Sprintf("%d:%s", kval, v))
 			batchMsg = append(batchMsg, msg...)
 
 			k, v = curs.Next()
@@ -299,7 +307,7 @@ func runScanner(s *bufio.Scanner, db *bbolt.DB, c chan<- error) {
 		}
 		cursor += 1
 		b := tx.Bucket(logsBucket)
-		b.Put([]byte(strconv.Itoa(cursor)), input)
+		b.Put(formatCursor(cursor), input)
 		c <- tx.Commit()
 	}
 }
@@ -309,4 +317,13 @@ func dbName() string {
 	io.WriteString(h, wd)
 	io.WriteString(h, time.Now().String())
 	return fmt.Sprintf("tmp_grog_db_%x", h.Sum(nil))
+}
+
+func formatCursor(c int64) []byte {
+	s := strconv.FormatInt(c, 10)
+
+	for len(s) < 20 {
+		s = fmt.Sprintf("0%s", s)
+	}
+	return []byte(s)
 }
