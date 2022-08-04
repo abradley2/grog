@@ -32,14 +32,15 @@ var wd string
 
 type Connection struct {
 	m      *sync.Mutex
-	Cursor int64
+	Cursor *int64
 	Conn   *websocket.Conn
 	db     *bbolt.DB
 }
 
 func (c *Connection) Listen() {
 	go func() {
-		for _, msg, err := c.Conn.ReadMessage(); err == nil; {
+		for {
+			_, msg, err := c.Conn.ReadMessage()
 			if err != nil {
 				c.WriteTextMessage([]byte(fmt.Sprintf("error:reading message:%v", err)))
 				c.Conn.Close()
@@ -51,7 +52,7 @@ func (c *Connection) Listen() {
 				c.Conn.Close()
 				return
 			}
-			c.Cursor = nextCursor
+			*c.Cursor = nextCursor
 		}
 	}()
 }
@@ -60,7 +61,7 @@ func (c *Connection) UpdateClient() error {
 	return c.db.View(func(tx *bbolt.Tx) error {
 		b := tx.Bucket(logsBucket)
 		curs := b.Cursor()
-		start := c.Cursor - 10
+		start := *c.Cursor - 20
 		if start < 1 {
 			start = 1
 		}
@@ -113,9 +114,10 @@ func (c *Connection) KeepAlive() {
 
 func NewConnection(conn *websocket.Conn, db *bbolt.DB) *Connection {
 	var m sync.Mutex
+	myCursor := cursor
 	return &Connection{
 		m:      &m,
-		Cursor: cursor,
+		Cursor: &myCursor,
 		Conn:   conn,
 		db:     db,
 	}

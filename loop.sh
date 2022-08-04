@@ -1,5 +1,5 @@
 while true; do
-  sleep 0.2 &
+  sleep 1 &
   echo "$(date -Iseconds)"
   wait
 done

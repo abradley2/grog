@@ -2,6 +2,7 @@ port module Main exposing (..)
 
 import Browser exposing (element)
 import Html as H exposing (Html)
+import Html.Keyed as Keyed
 import Json.Decode as Decode exposing (Decoder, Error)
 import Json.Encode as Encode exposing (Value)
 import Maybe.Extra as MaybeX
@@ -84,7 +85,7 @@ update msg model =
                     Decode.decodeString (Decode.list (parseDecoder "message" messageParser)) val
 
                 nextCursor =
-                    Result.map (List.map (.cursor >> toFloat) >> median >> Maybe.map (floor >> (+) 1)) logs
+                    Result.map (List.map (.cursor >> toFloat) >> median >> Maybe.map (floor >> (+) 2)) logs
                         |> Result.toMaybe
                         |> MaybeX.join
             in
@@ -100,7 +101,23 @@ view : Model -> Html Msg
 view model =
     H.div
         []
-        [ H.text "" ]
+        [ Keyed.ul
+            []
+            (Maybe.map Result.toMaybe model.logs
+                |> MaybeX.join
+                |> Maybe.map (List.map logItem)
+                |> Maybe.withDefault []
+            )
+        ]
+
+
+logItem : Message -> ( String, Html Msg )
+logItem log =
+    ( String.fromInt log.cursor
+    , H.li
+        []
+        [ H.text log.content ]
+    )
 
 
 main : Program Value Model Msg
