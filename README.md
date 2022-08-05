@@ -28,3 +28,9 @@ start someprocess | PORT=9966 grog
 ```
 
 The embedded database file will be created on process start and removed on process exit.
+
+# Build Requirements
+
+[uglifyjs v3.x](https://github.com/mishoo/UglifyJS)
+[elm 0.19.1](https://elm-lang.org)
+[Go v1.19](https://go.dev/dl/)
