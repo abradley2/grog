@@ -313,7 +313,7 @@ func runScanner(s *bufio.Scanner, db *bbolt.DB, c chan<- error) {
 func dbName() string {
 	h := crypto.MD5.New()
 	io.WriteString(h, wd)
-	io.WriteString(h, time.Now().String())
+	io.WriteString(h, os.Getenv("PORT"))
 	return fmt.Sprintf("tmp_grog_db_%x", h.Sum(nil))
 }
 
