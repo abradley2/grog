@@ -96,15 +96,13 @@ func (c *Connection) WriteTextMessage(msg []byte) error {
 
 func (c *Connection) KeepAlive() {
 	for {
-		// ping every one second and give the client two seconds to read.
-		// otherwise the connection is dead and we can remove it
-		time.Sleep(time.Second * 1)
+		// ping a connection every 10 seconds with a read deadline of half a
+		// second to read a ping message
+		time.Sleep(time.Second * 10)
 		c.m.Lock()
-		err := c.Conn.SetReadDeadline(time.Now().Add(time.Second * 1))
-		if err != nil {
-			break
-		}
-		err = c.Conn.WriteMessage(websocket.PingMessage, []byte{})
+		c.Conn.SetReadDeadline(time.Now().Add(time.Millisecond * 500))
+		err := c.Conn.WriteMessage(websocket.PingMessage, []byte{})
+		c.Conn.SetReadDeadline(time.Time{})
 		c.m.Unlock()
 		if err != nil {
 			break
