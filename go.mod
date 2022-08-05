@@ -1,10 +1,9 @@
 module github.com/abradley2/grog
 
-go 1.17
-
-require go.etcd.io/bbolt v1.3.7-0.20220226045046-fd5535f71f48 // direct
+go 1.19
 
 require (
-	github.com/gorilla/websocket v1.5.0 // direct
-	golang.org/x/sys v0.0.0-20220728004956-3c1f35247d10 // indirect
+	github.com/gorilla/websocket v1.5.0 // indirect
+	go.etcd.io/bbolt v1.3.6 // indirect
+	golang.org/x/sys v0.0.0-20220804214406-8e32c043e418 // indirect
 )

@@ -61,13 +61,13 @@ func (c *Connection) UpdateClient() error {
 	return c.db.View(func(tx *bbolt.Tx) error {
 		b := tx.Bucket(logsBucket)
 		curs := b.Cursor()
-		start := *c.Cursor - 20
+		start := *c.Cursor - 40
 		if start < 1 {
 			start = 1
 		}
 		k, v := curs.Seek(formatCursor(start))
 		batchMsg := []string{}
-		for i := 0; i < 40; i++ {
+		for i := 0; i < 80; i++ {
 			if k == nil {
 				break
 			}
