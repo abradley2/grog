@@ -84,7 +84,10 @@ func (c *Connection) UpdateClient() error {
 		if err != nil {
 			return fmt.Errorf("Error marshaling batch message: %w", err)
 		}
-		return c.WriteTextMessage(js)
+		// ignore errors on write here, we have handling on dead connections
+		// and we should only send an error for invalid keys/messages instead
+		c.WriteTextMessage(js)
+		return nil
 	})
 }
 
@@ -142,7 +145,12 @@ func NewApp(db *bbolt.DB, m *sync.Mutex, writes <-chan error) *app {
 				continue
 			}
 			for _, wsConn := range wsConns {
-				wsConn.UpdateClient()
+				err = wsConn.UpdateClient()
+				if err != nil {
+					fmt.Printf("Error in UpdateClient, check for bad data: %v\n", err)
+					// TODO: I think more likely we should gracefully shut down here
+					continue
+				}
 			}
 		}
 	}()
