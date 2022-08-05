@@ -31,6 +31,6 @@ The embedded database file will be created on process start and removed on proce
 
 # Build Requirements
 
-[uglifyjs v3.x](https://github.com/mishoo/UglifyJS)
-[elm 0.19.1](https://elm-lang.org)
-[Go v1.19](https://go.dev/dl/)
+* [uglifyjs v3.x](https://github.com/mishoo/UglifyJS)
+* [elm 0.19.1](https://elm-lang.org)
+* [Go v1.19](https://go.dev/dl/)
