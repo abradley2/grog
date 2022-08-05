@@ -213,6 +213,9 @@ func main() {
 		return
 	}
 
+	// redundant removal just in case previous cleanup failed somehow
+	os.Remove(dbName())
+
 	dbPath := path.Join(wd, dbName())
 
 	// handle gracefull shutdown
