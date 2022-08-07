@@ -19,7 +19,9 @@ and serve a UI to browse through them
 
 # Installation
 
-TODO
+Requires [Go 1.19](https://go.dev/dl/)
+
+`go install github.com/abradley2/grog`
 
 # Usage
 

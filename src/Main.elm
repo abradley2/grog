@@ -1,14 +1,16 @@
 port module Main exposing (..)
 
 import Browser exposing (element)
+import Browser.Dom as Dom exposing (Viewport)
 import Html as H exposing (Html)
+import Html.Attributes as A
 import Html.Keyed as Keyed
-import Json.Decode as Decode exposing (Decoder, Error)
-import Json.Encode as Encode exposing (Value)
+import Json.Decode as Decode exposing (Decoder)
+import Json.Encode exposing (Value)
 import Maybe.Extra as MaybeX
 import Parser exposing ((|.), (|=), Parser)
 import Set
-import Stat exposing (median)
+import Task
 
 
 port onMessage : (String -> msg) -> Sub msg
@@ -17,20 +19,64 @@ port onMessage : (String -> msg) -> Sub msg
 port sendMessage : String -> Cmd msg
 
 
+type Effect
+    = EffectNone
+    | EffectBatch (List Effect)
+    | EffectSetCursor Int
+    | EffectScrollToBottom String
+
+
+perform : Effect -> Cmd Msg
+perform effect =
+    case effect of
+        EffectNone ->
+            Cmd.none
+
+        EffectBatch effects ->
+            Cmd.batch (List.map perform effects)
+
+        EffectSetCursor cursor ->
+            sendMessage (String.fromInt cursor)
+
+        EffectScrollToBottom id ->
+            Dom.getViewportOf id
+                |> Task.andThen
+                    (\element ->
+                        let
+                            height =
+                                element.scene.height
+                        in
+                        Dom.setViewportOf id 0 height
+                    )
+                |> Task.attempt UpdatedViewport
+
+
 type Msg
     = OnMessage String
+    | ReceivedViewport (Result Dom.Error Viewport)
+    | UpdatedViewport (Result Dom.Error ())
 
 
 type alias Model =
-    { logs : Maybe (Result Error (List Message))
-    , cursor : Maybe Int
+    { logs : Maybe (Result Decode.Error (List Log))
+    , mode : Mode
     }
 
 
-type alias Message =
-    { cursor : Int
+type Mode
+    = Play
+    | BrowseAt Int
+
+
+type alias Log =
+    { id : Int
     , content : String
     }
+
+
+logId : Log -> String
+logId =
+    .id >> String.fromInt >> (++) "log-"
 
 
 parseDecoder : String -> Parser a -> Decoder a
@@ -47,10 +93,10 @@ parseDecoder name parser =
         Decode.string
 
 
-messageParser : Parser Message
-messageParser =
+logParser : Parser Log
+logParser =
     Parser.succeed
-        Message
+        Log
         |= Parser.int
         |. Parser.token ":"
         |= Parser.variable
@@ -61,70 +107,123 @@ messageParser =
         |. Parser.end
 
 
-init : Value -> ( Model, Cmd Msg )
+init : Value -> ( Model, Effect )
 init =
     let
         model : Model
         model =
             { logs = Nothing
-            , cursor = Nothing
+            , mode = Play
             }
     in
     always
         ( model
-        , Cmd.none
+        , EffectNone
         )
 
 
-update : Msg -> Model -> ( Model, Cmd Msg )
+update : Msg -> Model -> ( Model, Effect )
 update msg model =
     case msg of
+        ReceivedViewport _ ->
+            ( model, EffectNone )
+
+        UpdatedViewport _ ->
+            ( model, EffectNone )
+
         OnMessage val ->
             let
                 logs =
-                    Decode.decodeString (Decode.list (parseDecoder "message" messageParser)) val
+                    Decode.decodeString (Decode.list (parseDecoder "log" logParser)) val
 
                 nextCursor =
-                    Result.map (List.map (.cursor >> toFloat) >> median >> Maybe.map (floor >> (+) 2)) logs
-                        |> Result.toMaybe
-                        |> MaybeX.join
+                    case model.mode of
+                        Play ->
+                            Result.map (List.map .id >> List.maximum) logs
+                                |> Result.toMaybe
+                                |> MaybeX.join
+
+                        BrowseAt cursor ->
+                            Just cursor
             in
             ( { model
                 | logs = Just logs
-                , cursor = nextCursor
               }
-            , Maybe.map (String.fromInt >> sendMessage) nextCursor |> Maybe.withDefault Cmd.none
+            , EffectBatch
+                [ Maybe.map EffectSetCursor nextCursor |> Maybe.withDefault EffectNone
+                , EffectScrollToBottom logItemListId
+                ]
             )
 
 
 view : Model -> Html Msg
 view model =
     H.div
-        []
-        [ Keyed.ul
-            []
-            (Maybe.map Result.toMaybe model.logs
-                |> MaybeX.join
-                |> Maybe.map (List.map logItem)
-                |> Maybe.withDefault []
-            )
+        [ A.class "flex flex-column w-100 vh-100 overflow-x-auto overflow-y-auto avenir" ]
+        [ toolbar model
+        , Maybe.map Result.toMaybe model.logs
+            |> MaybeX.join
+            |> Maybe.map logItemList
+            |> Maybe.withDefault (H.text "")
         ]
 
 
-logItem : Message -> ( String, Html Msg )
-logItem log =
-    ( String.fromInt log.cursor
-    , H.li
+toolbar : Model -> Html Msg
+toolbar model =
+    H.div
         []
-        [ H.text log.content ]
+        [ H.text "" ]
+
+
+logItemListId : String
+logItemListId =
+    "log-item-list"
+
+
+logItemList : List Log -> Html Msg
+logItemList =
+    List.map logItem
+        >> Keyed.ul [ A.class "list pa0" ]
+        >> List.singleton
+        >> H.div
+            [ A.class "overflow-x-scroll overflow-y-scroll"
+            , A.style "max-height" "64rem"
+            , A.id logItemListId
+            ]
+
+
+logItem : Log -> ( String, Html Msg )
+logItem log =
+    let
+        key =
+            logId log
+    in
+    ( key
+    , H.li
+        [ A.id key
+        , A.classList
+            [ ( "flex h3 pa1 f7 items-center", True )
+            , case modBy 2 log.id of
+                0 ->
+                    ( "bg-washed-green", True )
+
+                _ ->
+                    ( "bg-light-green", True )
+            ]
+        ]
+        [ H.pre
+            [ A.class "courier"
+            ]
+            [ H.text log.content ]
+        ]
     )
 
 
 main : Program Value Model Msg
 main =
     element
-        { init = init
-        , update = update
+        { init = init >> Tuple.mapSecond perform
+        , update = \msg -> update msg >> Tuple.mapSecond perform
         , view = view
         , subscriptions = always (onMessage OnMessage)
         }
