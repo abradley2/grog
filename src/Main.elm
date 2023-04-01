@@ -4,6 +4,7 @@ import Browser exposing (element)
 import Browser.Dom as Dom exposing (Viewport)
 import Html as H exposing (Html)
 import Html.Attributes as A
+import Html.Events as E
 import Html.Keyed as Keyed
 import Json.Decode as Decode exposing (Decoder)
 import Json.Encode exposing (Value)
@@ -55,11 +56,13 @@ type Msg
     = OnMessage String
     | ReceivedViewport (Result Dom.Error Viewport)
     | UpdatedViewport (Result Dom.Error ())
+    | LogsScrolled
 
 
 type alias Model =
     { logs : Maybe (Result Decode.Error (List Log))
     , mode : Mode
+    , autoScrolling : Bool
     }
 
 
@@ -114,6 +117,7 @@ init =
         model =
             { logs = Nothing
             , mode = Play
+            , autoScrolling = False
             }
     in
     always
@@ -125,14 +129,25 @@ init =
 update : Msg -> Model -> ( Model, Effect )
 update msg model =
     case msg of
+        LogsScrolled ->
+            let
+                l =
+                    Debug.log "LOGS SCROLLED" <| not model.autoScrolling
+            in
+            ( model, EffectNone )
+
         ReceivedViewport _ ->
             ( model, EffectNone )
 
-        UpdatedViewport _ ->
-            ( model, EffectNone )
+        UpdatedViewport (Err _) ->
+            ( { model | autoScrolling = False }, EffectNone )
+
+        UpdatedViewport (Ok _) ->
+            ( { model | autoScrolling = False }, EffectNone )
 
         OnMessage val ->
             let
+                logs : Result Decode.Error (List Log)
                 logs =
                     Decode.decodeString (Decode.list (parseDecoder "log" logParser)) val
 
@@ -145,13 +160,23 @@ update msg model =
 
                         BrowseAt cursor ->
                             Just cursor
+
+                scrollEffect : Maybe Effect
+                scrollEffect =
+                    case model.mode of
+                        Play ->
+                            Just <| EffectScrollToBottom logItemListId
+
+                        _ ->
+                            Nothing
             in
             ( { model
                 | logs = Just logs
+                , autoScrolling = MaybeX.isJust scrollEffect
               }
             , EffectBatch
                 [ Maybe.map EffectSetCursor nextCursor |> Maybe.withDefault EffectNone
-                , EffectScrollToBottom logItemListId
+                , Maybe.withDefault EffectNone scrollEffect
                 ]
             )
 
@@ -163,13 +188,13 @@ view model =
         [ toolbar model
         , Maybe.map Result.toMaybe model.logs
             |> MaybeX.join
-            |> Maybe.map logItemList
+            |> Maybe.map (logItemList model)
             |> Maybe.withDefault (H.text "")
         ]
 
 
 toolbar : Model -> Html Msg
-toolbar model =
+toolbar _ =
     H.div
         []
         [ H.text "" ]
@@ -180,8 +205,8 @@ logItemListId =
     "log-item-list"
 
 
-logItemList : List Log -> Html Msg
-logItemList =
+logItemList : Model -> List Log -> Html Msg
+logItemList model =
     List.map logItem
         >> Keyed.ul [ A.class "list pa0" ]
         >> List.singleton
@@ -189,12 +214,19 @@ logItemList =
             [ A.class "overflow-x-scroll overflow-y-scroll"
             , A.style "max-height" "64rem"
             , A.id logItemListId
+            , E.on "scroll" <|
+                if model.autoScrolling then
+                    Decode.fail ""
+
+                else
+                    Decode.succeed LogsScrolled
             ]
 
 
 logItem : Log -> ( String, Html Msg )
 logItem log =
     let
+        key : String
         key =
             logId log
     in
